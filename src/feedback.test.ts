@@ -26,6 +26,12 @@ describe("feedback", () => {
     expect(splitPatch(two).map((part) => part.path)).toEqual(["a.ts", "b c.ts"])
   })
 
+  test("splitPatch reads any git prefix and writes the usual ones", () => {
+    const [part] = splitPatch("diff --git i/src/a.ts w/src/a.ts\nindex 1..2 100644\n--- i/src/a.ts\n+++ w/src/a.ts\n@@ -1 +1 @@\n--- i/kept\n+++ w/kept\n")
+    expect(part?.path).toBe("src/a.ts")
+    expect(part?.patch).toBe("diff --git a/src/a.ts b/src/a.ts\nindex 1..2 100644\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n--- i/kept\n+++ w/kept\n")
+  })
+
   test("clipPatch keeps whole hunks and counts the rest", () => {
     expect(clipPatch(PATCH, 100).hidden).toBe(0)
     const clipped = clipPatch(PATCH, 5)

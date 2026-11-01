@@ -31,11 +31,23 @@ export function patchBody(patch: string) {
   return start ? normal.slice(start.index) : ""
 }
 
-/** The patch of each file in a diff of several, as `git diff` writes an untracked folder. */
+/**
+ * The patch of each file in a diff, as `git diff` writes an untracked folder as several. Prefixes become the usual `a/`
+ * and `b/` whatever the user's git config says (`diff.mnemonicPrefix` writes `i/` and `w/`), since the diff's parser
+ * takes no others.
+ */
 export function splitPatch(diff: string): { path: string; patch: string }[] {
-  const parts = diff.split(/^(?=diff --git )/m).filter((part) => part.trim())
-  return parts.map((patch, index) => {
-    const named = /^\+\+\+ b\/(.+)$/m.exec(patch)?.[1] ?? /^--- a\/(.+)$/m.exec(patch)?.[1] ?? /^diff --git a\/(.+?) b\//.exec(patch)?.[1]
+  const parts = diff.split(/^(?=diff --git )/m).filter((part) => part.startsWith("diff --git "))
+  return parts.map((part, index) => {
+    const start = part.search(/^@@ /m)
+    const head = start === -1 ? part : part.slice(0, start)
+    const clean = head
+      .replace(/^diff --git [a-z]\/(.*) [a-z]\/(.*)$/m, "diff --git a/$1 b/$2")
+      .replace(/^--- [a-z]\//m, "--- a/")
+      .replace(/^\+\+\+ [a-z]\//m, "+++ b/")
+    const patch = clean + (start === -1 ? "" : part.slice(start))
+    // Git ends a name holding a space with a tab.
+    const named = /^\+\+\+ b\/(.+?)\t?$/m.exec(clean)?.[1] ?? /^--- a\/(.+?)\t?$/m.exec(clean)?.[1] ?? /^diff --git a\/(.+?) b\//.exec(clean)?.[1]
     return { path: named ?? `${index}`, patch }
   })
 }

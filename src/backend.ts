@@ -651,7 +651,7 @@ export function createBackend(deps: BackendDeps): { backend: Backend; kit: Backe
         const diffs = await Promise.all(
           files.slice(0, 20).map((file) =>
             // `--no-index` exits 1 when the files differ, which they always do here; its stdout is the diff.
-            run("git", ["-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", "--no-index", "--", "/dev/null", file], cwd, {
+            run("git", ["-c", "core.quotePath=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.noprefix=false", "diff", "--no-color", "--no-ext-diff", "--no-index", "--", "/dev/null", file], cwd, {
               signal: caller.signal,
               ok: (code) => code <= 1,
             }).catch(() => ""),
@@ -661,7 +661,7 @@ export function createBackend(deps: BackendDeps): { backend: Backend; kit: Backe
       }
       return git(
         cwd,
-        ["-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", ...(staged ? ["--cached"] : []), "--", pathspec(path)],
+        ["-c", "core.quotePath=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.noprefix=false", "diff", "--no-color", "--no-ext-diff", ...(staged ? ["--cached"] : []), "--", pathspec(path)],
         caller.signal,
       )
     },

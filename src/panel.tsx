@@ -1272,24 +1272,28 @@ function DiffView(props: { state: State; file: FileChange; staged: boolean; open
       refetchInterval: s.visible() ? Math.max(4000, props.open * 1000) : false,
     })),
   )
-  const content = () => {
+  // Every poll notifies, with the same text or not; a memo stops an unchanged diff from going further.
+  const content = createMemo(() => {
     const text = diff.latest ?? ""
     return text.length > 200_000 ? `${text.slice(0, 200_000)}\n…` : text
-  }
+  })
   const parts = createMemo(() => splitPatch(content()))
+  // By path, so an edit to the file updates its diff in place and a comment being written stays open.
+  const paths = createMemo(() => parts().map((part) => part.path), [], { equals: (a, b) => a.join("\n") === b.join("\n") })
+  const patchOf = (path: string) => parts().find((part) => part.path === path)?.patch ?? ""
   const raw = () => <ui.Code content={content()} language="diff" />
   return (
     <div class="ghp-diff" data-ghp-source={`the diff of ${props.file.path}`} data-ghp-label={props.file.path.split("/").pop()}>
       <Show when={diff.latest !== undefined} fallback={diff.error ? <span class="ghp-faint">{errorMessage(diff.error)}</span> : <ui.Loader size="small" />}>
         <Show when={content().trim()} fallback={<span class="ghp-faint">—</span>}>
           {/* A diff in another form, such as a conflict's combined diff, has no "diff --git" to split on. */}
-          <For each={parts()} fallback={raw()}>
-            {(part) => (
+          <For each={paths()} fallback={raw()}>
+            {(path) => (
               <>
-                <Show when={parts().length > 1}>
-                  <div class="ghp-diff-part ghp-mono ghp-faint">{part.path}</div>
+                <Show when={paths().length > 1}>
+                  <div class="ghp-diff-part ghp-mono ghp-faint">{path}</div>
                 </Show>
-                <DiffBody path={part.path} patch={part.patch} feedback={props.feedback} where={localWhere(props.staged)} fallback={<ui.Code content={part.patch} language="diff" />} />
+                <DiffBody path={path} patch={patchOf(path)} feedback={props.feedback} where={localWhere(props.staged)} fallback={<ui.Code content={patchOf(path)} language="diff" />} />
               </>
             )}
           </For>
