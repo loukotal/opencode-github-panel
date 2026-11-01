@@ -4,6 +4,8 @@ import { errorMessage, repoOf, type Actions } from "./actions"
 import { ActivityView } from "./activity"
 import { openBranchPicker } from "./branches"
 import { fileContext } from "./context"
+import { AttachBar, createFeedback, DiffBody, FeedbackBar, type FeedbackStore } from "./diff"
+import { splitPatch } from "./feedback"
 import { latest } from "./queries"
 import type { AgentQueue, Commit, FileChange, Overview, PullRequest, Pulls } from "./contract"
 import type { definition, View } from "./definition"
@@ -814,7 +816,24 @@ function ChangesView(props: { state: State }) {
   const ui = ctx.ui
   const t = ctx.t
   const [message, setMessage] = createSignal("")
-  const [expanded, setExpanded] = createSignal<string>()
+  const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set<string>())
+  // The file whose "Add to chat" box is open.
+  const [noting, setNoting] = createSignal<string>()
+  const feedback = createFeedback(s.actions, () => `local:${s.cwd()}`)
+  const toggle = (key: string) => {
+    const next = new Set(expanded())
+    if (!next.delete(key)) next.add(key)
+    setExpanded(next)
+  }
+  const openAll = (keys: readonly string[], open: boolean) => {
+    const next = new Set(expanded())
+    keys.forEach((key) => (open ? next.add(key) : next.delete(key)))
+    setExpanded(next)
+  }
+  const note = (key: string) => {
+    openAll([key], true)
+    setNoting(noting() === key ? undefined : key)
+  }
   // Keeps the entries of unchanged files, so rows (and an open diff) stay mounted when another file changes.
   const files = createMemo<readonly FileChange[]>((previous) => {
     const known = new Map(previous.map((file) => [file.path, file]))
@@ -854,10 +873,10 @@ function ChangesView(props: { state: State }) {
       if (done) setMessage("")
     })
 
-  const attachDiff = async (file: FileChange, staged: boolean) => {
+  const attachDiff = async (file: FileChange, staged: boolean, comment: string) => {
     const diff = await s.actions.attempt(() => s.actions.git.diff({ cwd: s.cwd(), path: file.path, staged, untracked: file.untracked }))
     if (!diff?.trim()) return
-    s.actions.attach(fileContext(file.path, diff, staged ? "staged in the working tree" : "uncommitted in the working tree"), ctx.t("agent.prompt.diff"))
+    s.actions.attach(fileContext(file.path, diff, localWhere(staged), comment), comment ? undefined : ctx.t("agent.prompt.diff"))
   }
   const stage = (paths: string[]) => s.run("stage", () => s.actions.attempt(() => s.actions.git.stage({ cwd: s.cwd(), paths })))
   const unstage = (paths: string[]) => s.run("stage", () => s.actions.attempt(() => s.actions.git.unstage({ cwd: s.cwd(), paths })))
@@ -932,9 +951,14 @@ function ChangesView(props: { state: State }) {
         files={conflicts()}
         section="conflict"
         expanded={expanded()}
-        onToggle={(key) => setExpanded(expanded() === key ? undefined : key)}
+        onToggle={toggle}
+        onOpenAll={openAll}
+        noting={noting()}
+        onNoted={() => setNoting(undefined)}
+        onAttach={attachDiff}
+        feedback={feedback}
         actions={[
-          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && void attachDiff(list[0], false), single: true },
+          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && note(`conflict:${list[0].path}`), single: true },
           { icon: "check", label: t("changes.stage"), run: (list) => void stage(list.map((file) => file.path)) },
         ]}
       />
@@ -944,9 +968,14 @@ function ChangesView(props: { state: State }) {
         files={staged()}
         section="staged"
         expanded={expanded()}
-        onToggle={(key) => setExpanded(expanded() === key ? undefined : key)}
+        onToggle={toggle}
+        onOpenAll={openAll}
+        noting={noting()}
+        onNoted={() => setNoting(undefined)}
+        onAttach={attachDiff}
+        feedback={feedback}
         actions={[
-          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && void attachDiff(list[0], true), single: true },
+          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && note(`staged:${list[0].path}`), single: true },
           { icon: "minus", label: t("changes.unstage"), bulk: t("changes.unstageAll"), run: (list) => void unstage(list.map((file) => file.path)) },
         ]}
       />
@@ -956,9 +985,14 @@ function ChangesView(props: { state: State }) {
         files={unstaged()}
         section="unstaged"
         expanded={expanded()}
-        onToggle={(key) => setExpanded(expanded() === key ? undefined : key)}
+        onToggle={toggle}
+        onOpenAll={openAll}
+        noting={noting()}
+        onNoted={() => setNoting(undefined)}
+        onAttach={attachDiff}
+        feedback={feedback}
         actions={[
-          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && void attachDiff(list[0], false), single: true },
+          { icon: "bubble-5", label: t("action.addToChat"), run: (list) => list[0] && note(`unstaged:${list[0].path}`), single: true },
           { icon: "outline-undo", label: t("changes.discard"), bulk: t("changes.discardAll"), run: (list) => void discard(list) },
           { icon: "plus", label: t("changes.stage"), bulk: t("changes.stageAll"), run: (list) => void stage(list.map((file) => file.path)) },
         ]}
@@ -970,6 +1004,7 @@ function ChangesView(props: { state: State }) {
           if (!message().trim()) setMessage(subject)
         }}
       />
+      <FeedbackBar feedback={feedback} />
     </div>
   )
 }
@@ -1080,12 +1115,20 @@ function FileSection(props: {
   title: string
   files: FileChange[]
   section: "staged" | "unstaged" | "conflict"
-  expanded: string | undefined
+  expanded: ReadonlySet<string>
   onToggle: (key: string) => void
+  onOpenAll: (keys: readonly string[], open: boolean) => void
+  noting: string | undefined
+  onNoted: () => void
+  onAttach: (file: FileChange, staged: boolean, comment: string) => void
+  feedback: FeedbackStore
   actions: FileAction[]
 }) {
   const ui = props.state.ctx.ui
+  const t = props.state.ctx.t
   const [collapsed, setCollapsed] = createSignal(false)
+  const keys = () => props.files.map((file) => `${props.section}:${file.path}`)
+  const allOpen = () => keys().every((key) => props.expanded.has(key))
   return (
     <Show when={props.files.length > 0}>
       <section class="ghp-section">
@@ -1096,6 +1139,18 @@ function FileSection(props: {
             <span class="ghp-tab-count">{props.files.length}</span>
           </button>
           <div class="ghp-row-actions ghp-row-actions-visible">
+            <ui.Tooltip value={allOpen() ? t("diff.closeAll") : t("diff.reviewAll")}>
+              <ui.IconButton
+                icon={allOpen() ? "collapse" : "expand"}
+                label={allOpen() ? t("diff.closeAll") : t("diff.reviewAll")}
+                size="small"
+                variant="ghost"
+                onClick={() => {
+                  setCollapsed(false)
+                  props.onOpenAll(keys(), !allOpen())
+                }}
+              />
+            </ui.Tooltip>
             <For each={props.actions.filter((action) => action.bulk)}>
               {(action) => (
                 <ui.Tooltip value={action.bulk}>
@@ -1124,14 +1179,16 @@ function FileSection(props: {
               // Untracked folders end with a slash; name them by their last segment.
               const trimmed = file.path.replace(/\/$/, "")
               const slash = trimmed.lastIndexOf("/")
+              const staged = props.section === "staged"
+              const comments = () => props.feedback.all().filter((item) => item.where === localWhere(staged) && (item.path === file.path || (file.path.endsWith("/") && item.path.startsWith(file.path))))
               return (
                 <>
                   <div
                     class="ghp-file"
                     role="button"
                     tabIndex={0}
-                    aria-expanded={props.expanded === key()}
-                    data-open={props.expanded === key() ? "" : undefined}
+                    aria-expanded={props.expanded.has(key())}
+                    data-open={props.expanded.has(key()) ? "" : undefined}
                     onClick={() => props.onToggle(key())}
                     onKeyDown={(event) => {
                       if (event.target !== event.currentTarget) return
@@ -1152,6 +1209,9 @@ function FileSection(props: {
                       {file.origPath ? `${file.origPath} → ` : ""}
                       {slash === -1 ? "" : trimmed.slice(0, slash)}
                     </span>
+                    <Show when={comments().length > 0}>
+                      <span class="ghp-pill ghp-draft-pill">✎ {comments().length}</span>
+                    </Show>
                     <div class="ghp-row-actions" onClick={(event) => event.stopPropagation()}>
                       <For each={props.actions}>
                         {(action) => (
@@ -1169,8 +1229,19 @@ function FileSection(props: {
                       </For>
                     </div>
                   </div>
-                  <Show when={props.expanded === key()}>
-                    <DiffView state={props.state} file={file} staged={props.section === "staged"} />
+                  <Show when={props.expanded.has(key())}>
+                    <Show when={props.noting === key()}>
+                      <div class="ghp-diff-attach">
+                        <AttachBar
+                          onCancel={props.onNoted}
+                          onAttach={(comment) => {
+                            props.onAttach(file, staged, comment)
+                            props.onNoted()
+                          }}
+                        />
+                      </div>
+                    </Show>
+                    <DiffView state={props.state} file={file} staged={staged} open={props.expanded.size} feedback={props.feedback} />
                   </Show>
                 </>
               )
@@ -1182,7 +1253,9 @@ function FileSection(props: {
   )
 }
 
-function DiffView(props: { state: State; file: FileChange; staged: boolean }) {
+const localWhere = (staged: boolean) => (staged ? "staged in the working tree" : "uncommitted in the working tree")
+
+function DiffView(props: { state: State; file: FileChange; staged: boolean; open: number; feedback: FeedbackStore }) {
   const s = props.state
   const ui = s.ctx.ui
   const q = s.actions.queries
@@ -1191,22 +1264,35 @@ function DiffView(props: { state: State; file: FileChange; staged: boolean }) {
     () => JSON.stringify(s.overview().files.find((file) => file.path === props.file.path) ?? null),
     () => q.invalidate(q.keys.diff(s.cwd(), props.file.path, props.staged, props.file.untracked)),
   )
-  // A content edit leaves the file's status as it was, so the open diff also polls while the panel is on screen.
+  // A content edit leaves the file's status as it was, so the open diff also polls while the panel is on screen; slower
+  // with many open, since each poll is a git process.
   const diff = latest(
     q.query(() => ({
       ...q.options.diff(s.cwd(), props.file.path, props.staged, props.file.untracked),
-      refetchInterval: s.visible() ? 4000 : false,
+      refetchInterval: s.visible() ? Math.max(4000, props.open * 1000) : false,
     })),
   )
   const content = () => {
     const text = diff.latest ?? ""
     return text.length > 200_000 ? `${text.slice(0, 200_000)}\n…` : text
   }
+  const parts = createMemo(() => splitPatch(content()))
+  const raw = () => <ui.Code content={content()} language="diff" />
   return (
-    <div class="ghp-diff">
+    <div class="ghp-diff" data-ghp-source={`the diff of ${props.file.path}`} data-ghp-label={props.file.path.split("/").pop()}>
       <Show when={diff.latest !== undefined} fallback={diff.error ? <span class="ghp-faint">{errorMessage(diff.error)}</span> : <ui.Loader size="small" />}>
         <Show when={content().trim()} fallback={<span class="ghp-faint">—</span>}>
-          <ui.Code content={content()} language="diff" />
+          {/* A diff in another form, such as a conflict's combined diff, has no "diff --git" to split on. */}
+          <For each={parts()} fallback={raw()}>
+            {(part) => (
+              <>
+                <Show when={parts().length > 1}>
+                  <div class="ghp-diff-part ghp-mono ghp-faint">{part.path}</div>
+                </Show>
+                <DiffBody path={part.path} patch={part.patch} feedback={props.feedback} where={localWhere(props.staged)} fallback={<ui.Code content={part.patch} language="diff" />} />
+              </>
+            )}
+          </For>
         </Show>
       </Show>
     </div>

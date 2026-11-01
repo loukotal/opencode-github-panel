@@ -5,6 +5,8 @@ export interface Context {
   readonly label: string
   readonly subject: string
   readonly text: string
+  /** The user's comment on it, which the composer shows with the quote. */
+  readonly comment?: string
 }
 
 /** A session title on one line of at most 80 characters, such as "#123 Fix the login redirect". */
@@ -110,11 +112,12 @@ export function jobContext(repo: string, details: RunDetails, job: Job, log: str
   }
 }
 
-export function fileContext(path: string, patch: string, where: string): Context {
+export function fileContext(path: string, patch: string, where: string, comment?: string): Context {
   return {
     label: path.split("/").pop() ?? path,
     subject: `the diff of ${path} ${where}`,
     text: clip(`diff of ${path}\n\n${patch}`),
+    ...(comment ? { comment } : {}),
   }
 }
 

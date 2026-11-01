@@ -624,9 +624,8 @@
 }
 
 .ghp-diff {
-  max-height: 420px;
   margin: 2px 8px 6px 16px;
-  overflow: auto;
+  overflow: clip;
   border: 1px solid var(--v2-border-border-muted);
   border-radius: 6px;
   font-size: 12px;
@@ -1643,6 +1642,64 @@
   white-space: nowrap;
   direction: rtl;
   text-align: left;
+}
+
+.ghp-patch {
+  --diffs-font-family: var(--font-family-mono);
+  --diffs-header-font-family: var(--font-family-sans, inherit);
+  --diffs-font-size: 12px;
+  --diffs-line-height: 20px;
+  --diffs-tab-size: 4;
+  /* The panel's own background, not the theme's. */
+  --diffs-bg-context-override: var(--v2-background-bg-base);
+  --diffs-bg-context-gutter-override: var(--v2-background-bg-base);
+  --diffs-bg-buffer-override: var(--v2-background-bg-base);
+}
+
+.ghp-dnote {
+  font-family: var(--font-family-sans, inherit);
+  white-space: normal;
+}
+
+.ghp-attach {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--v2-border-border-muted);
+  background: var(--v2-background-bg-base);
+  font-size: 12px;
+}
+
+.ghp-diff-attach {
+  margin: 2px 8px 0 16px;
+  overflow: clip;
+  border: 1px solid var(--v2-border-border-muted);
+  border-radius: 6px;
+
+  .ghp-attach {
+    border-bottom: 0;
+  }
+}
+
+.ghp-diff-part {
+  padding: 4px 10px;
+  border-block: 1px solid var(--v2-border-border-muted);
+  font-size: 12px;
+}
+
+.ghp-feedback-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--v2-border-border-muted);
+  background: var(--v2-background-bg-layer-01);
+  font-size: 12px;
 }
 
 .ghp-diff-table {

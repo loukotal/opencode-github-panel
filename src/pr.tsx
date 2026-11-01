@@ -4,7 +4,7 @@ import { latest } from "./queries"
 import { errorMessage, type Actions } from "./actions"
 import type { Check, Item, Review, Reviews, Run, Thread } from "./contract"
 import { fileContext, threadContext } from "./context"
-import { DiffList } from "./diff"
+import { createFeedback, DiffList, FeedbackBar } from "./diff"
 import { DraftBar, DraftEntry, DraftNote, type Draft } from "./drafting"
 import { Chevron, Clamp, firstLine, Group, type Folds } from "./fold"
 import { parseGitHubLink, parsePatch } from "./git"
@@ -420,6 +420,7 @@ export function PrFiles(props: { item: Item; reviews: Reviews | undefined; actio
   // The query input goes to the backend as is, so it gets the reference, not the whole item.
   const ref = () => ({ repo: props.item.repo, number: props.item.number })
   const files = latest(q.query(() => q.options.files(ref(), props.item.pr?.sha ?? "")))
+  const feedback = createFeedback(props.actions, () => `pr:${props.item.repo}#${props.item.number}`)
   const key = () => `${props.item.repo}#${props.item.number}@${props.item.pr?.sha ?? ""}`
   const [version, setVersion] = createSignal(0)
   const viewed = () => {
@@ -460,8 +461,10 @@ export function PrFiles(props: { item: Item; reviews: Reviews | undefined; actio
             drafting={!!props.draft.draft()}
             renderDraft={(comment, orphan) => <DraftNote comment={comment} draft={props.draft} folds={props.threads} orphan={orphan} />}
             onDraft={props.item.state === "OPEN" && props.item.pr?.sha ? (file, at, body) => props.draft.add(file, at, body) : undefined}
-            onAttach={(file) =>
-              props.actions.attach(fileContext(file.path, file.patch ?? "", `in pull request ${props.item.repo}#${props.item.number}`), t("agent.prompt.diff"))
+            where={`in pull request ${props.item.repo}#${props.item.number}`}
+            feedback={feedback}
+            onAttach={(file, note) =>
+              props.actions.attach(fileContext(file.path, file.patch ?? "", `in pull request ${props.item.repo}#${props.item.number}`, note), note ? undefined : t("agent.prompt.diff"))
             }
             onComment={
               props.item.state === "OPEN" && props.item.pr?.sha
@@ -480,6 +483,7 @@ export function PrFiles(props: { item: Item; reviews: Reviews | undefined; actio
                 : undefined
             }
           />
+          <FeedbackBar feedback={feedback} />
           <DraftBar draft={props.draft} item={props.item} files={list()} mine={props.reviews?.mine ?? false} folds={props.threads} />
         </>
       )}

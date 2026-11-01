@@ -15,9 +15,16 @@ fetch, workflow runs and open on GitHub). Branch details appear only on the two 
   checking out. **Clean up…** lists branches whose pull request was merged or closed, whose upstream is gone, or that
   are merged into the default branch, with the reason for each; branches with unpushed work start unchecked, and
   branches checked out in a worktree are left out.
-- **Changes**: staged, unstaged and conflicted files with inline diffs; stage, unstage and discard per file or all at
-  once; commit, commit all, commit & push, amend (⌘⏎ commits; amending a pushed commit asks first). **Unpushed
-  commits** lists what is not on the remote yet, with Push, Amend and Undo last commit.
+- **Changes**: staged, unstaged and conflicted files with inline diffs, as many open as you like (the button on a
+  section header opens them all to review); stage, unstage and discard per file or all at once; commit, commit all,
+  commit & push, amend (⌘⏎ commits; amending a pushed commit asks first). **Unpushed commits** lists what is not on the
+  remote yet, with Push, Amend and Undo last commit.
+- **Diffs**: drawn by [@pierre/diffs](https://diffs.com) with syntax colors and changes marked within a line, in the
+  app's light or dark mode.
+- **Review for the agent**: in local changes, a pull request's files or a commit, click or drag line numbers (or use the
+  gutter's `+`) to comment on lines, and pick **Comment for the agent**. The comments stay on their lines, across
+  reloads, until **Send to chat** quotes each one, with its lines, into your next prompt; you send the prompt.
+  **Add to chat** on a file opens a box for an optional comment to send with its whole diff.
 - **History**: a commit graph with lanes, merge curves, branch, remote and tag badges, and the pull request of each
   branch. Shows local branches with their upstreams, the current branch, or everything. Click a commit for its files,
   message and actions: checkout, new branch from here, cherry-pick, revert, copy hash, open on GitHub.

@@ -7,7 +7,7 @@ import { Chevron, Clamp, firstLine, type Folds } from "./fold"
 import { latest } from "./queries"
 import { GitRpc } from "./rpc"
 import type { reviewMethods } from "./schemas"
-import type { Target } from "./diff"
+import type { Target } from "./feedback"
 
 type Methods = typeof reviewMethods
 type Edit = Omit<Methods["reviewEdit"]["input"]["Type"], "sessionID" | "repo" | "number">
@@ -59,7 +59,17 @@ export function createDraft(props: { ref: ItemRef; item: () => Item | undefined;
   }
 
   const add = (file: ChangedFile, target: Target, body: string) =>
-    edit({ add: { path: file.path, line: target.line, side: target.side, startLine: null, body }, sha: props.item()?.pr?.sha })
+    edit({
+      add: {
+        path: file.path,
+        line: target.line,
+        side: target.side,
+        // GitHub's multi-line comments stay on one side of the diff; across sides, the comment goes on the last line.
+        startLine: target.startLine && target.startLine !== target.line && (target.startSide ?? target.side) === target.side ? target.startLine : null,
+        body,
+      },
+      sha: props.item()?.pr?.sha,
+    })
 
   const discard = async () => {
     const current = draft()

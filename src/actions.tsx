@@ -557,21 +557,27 @@ export function createActions(ctx: SetupContext<typeof definition>) {
     )
 
   /** Quotes context into the routed session's next prompt; with a prompt, fills an empty composer with it too. */
-  const attach = (context: ChatContext, prompt?: string) => {
+  const attach = (context: ChatContext, prompt?: string) => attachAll([context], prompt, context.label)
+
+  /** Quotes several contexts at once, each with its own comment; `label` names them in the toast. */
+  const attachAll = (contexts: readonly ChatContext[], prompt: string | undefined, label: string) => {
     const composer = ctx.screen.current()?.composer
     if (!composer?.quotable()) {
       ctx.toast.show({ variant: "error", title: ctx.t("toast.noComposer") })
       return false
     }
-    composer.attach({
-      type: "quote",
-      commentID: crypto.randomUUID(),
-      text: context.text,
-      source: { label: context.label, icon: "github", subject: context.subject },
-    })
+    contexts.forEach((context) =>
+      composer.attach({
+        type: "quote",
+        commentID: crypto.randomUUID(),
+        text: context.text,
+        ...(context.comment ? { comment: context.comment } : {}),
+        source: { label: context.label, icon: "github", subject: context.subject },
+      }),
+    )
     if (prompt && !composer.text().trim()) composer.setText(prompt)
     composer.focus()
-    ctx.toast.show({ variant: "success", title: ctx.t("toast.attached", { label: context.label }), duration: 2000 })
+    ctx.toast.show({ variant: "success", title: ctx.t("toast.attached", { label }), duration: 2000 })
     return true
   }
 
@@ -828,6 +834,7 @@ export function createActions(ctx: SetupContext<typeof definition>) {
     finishWorktree,
     addToChat,
     attach,
+    attachAll,
     startSession,
     launch,
     openDirectory,

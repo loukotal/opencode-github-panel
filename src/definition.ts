@@ -38,6 +38,24 @@ export const definition = Plugin.define({
         issueBranches: Schema.optional(Schema.Record(Schema.String, Schema.Number)),
         /** New pull requests start as drafts. */
         prDraft: Schema.optional(Schema.Boolean),
+        /** Comments on diff lines not sent to the chat yet, by what they review: `local:<folder>`, `pr:<repo>#<n>` or `commit:<repo>@<sha>`. */
+        chatComments: Schema.optional(
+          Schema.Record(
+            Schema.String,
+            Schema.Array(
+              Schema.Struct({
+                id: Schema.String,
+                path: Schema.String,
+                where: Schema.String,
+                line: Schema.Number,
+                side: Schema.Literals(["LEFT", "RIGHT"]),
+                startLine: Schema.NullOr(Schema.Number),
+                snippet: Schema.String,
+                body: Schema.String,
+              }),
+            ),
+          ),
+        ),
       }),
       { view: "changes", graphScope: "local", pullFilter: "open", headerChip: true },
     ),

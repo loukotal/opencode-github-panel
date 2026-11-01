@@ -3,7 +3,7 @@ import { usePlugin } from "@opencode/plugin/gui"
 import { latest } from "./queries"
 import { errorMessage, type Actions } from "./actions"
 import { fileContext } from "./context"
-import { DiffList } from "./diff"
+import { createFeedback, DiffList, FeedbackBar } from "./diff"
 import { Clamp, createFolds } from "./fold"
 import { ago } from "./panel"
 
@@ -15,6 +15,7 @@ export function CommitView(props: { repo: string; sha: string; actions: Actions 
   const q = props.actions.queries
   const data = latest(q.query(() => q.options.commit(props.repo, props.sha)))
   const folds = createFolds()
+  const feedback = createFeedback(props.actions, () => `commit:${props.repo}@${props.sha}`)
   return (
     <div class="ghp ghp-item" data-repo={props.repo} data-ghp-source={`the commit ${props.repo}@${props.sha}`} data-ghp-label={props.sha.slice(0, 7)}>
       <Show
@@ -74,10 +75,13 @@ export function CommitView(props: { repo: string; sha: string; actions: Actions 
             <DiffList
               files={commit().files}
               folds={folds}
-              onAttach={(file) =>
-                props.actions.attach(fileContext(file.path, file.patch ?? "", `in commit ${props.repo}@${commit().sha.slice(0, 7)}`), t("agent.prompt.diff"))
+              where={`in commit ${props.repo}@${commit().sha.slice(0, 7)}`}
+              feedback={feedback}
+              onAttach={(file, note) =>
+                props.actions.attach(fileContext(file.path, file.patch ?? "", `in commit ${props.repo}@${commit().sha.slice(0, 7)}`, note), note ? undefined : t("agent.prompt.diff"))
               }
             />
+            <FeedbackBar feedback={feedback} />
           </div>
         )}
       </Show>

@@ -18,6 +18,7 @@ interface Selected {
  */
 export function createSelectionQuote(ctx: Context, actions: Actions) {
   const [selected, setSelected] = createSignal<Selected>()
+  const pointer = { x: 0, y: 0 }
 
   const read = () => {
     const selection = window.getSelection()
@@ -30,17 +31,21 @@ export function createSelectionQuote(ctx: Context, actions: Actions) {
     if (!(source instanceof HTMLElement) || element?.closest("textarea, input")) return setSelected(undefined)
     const rects = range.getClientRects()
     const last = rects[rects.length - 1] ?? range.getBoundingClientRect()
+    // A selection inside a diff's shadow root has no rectangle out here, so the button goes where the mouse let go.
+    const placed = last.width > 0 || last.height > 0
     setSelected({
       text: clip(text),
       label: source.dataset.ghpLabel ?? "GitHub",
       subject: source.dataset.ghpSource ?? "the git panel",
-      x: Math.min(last.right, window.innerWidth - 130),
-      y: last.bottom + 6,
+      x: Math.min(placed ? last.right : pointer.x, window.innerWidth - 130),
+      y: (placed ? last.bottom : pointer.y) + 6,
     })
   }
 
   const onUp = (event: MouseEvent) => {
     if (event.target instanceof Element && event.target.closest(".ghp-quote")) return
+    pointer.x = event.clientX
+    pointer.y = event.clientY
     // The selection settles after mouseup.
     requestAnimationFrame(read)
   }
