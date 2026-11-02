@@ -11,6 +11,7 @@ export const issue = {
   "start.where.worktreeNote": "A separate folder for the branch; this checkout and its changes stay as they are.",
   "start.worktree.creating": "Creating the worktree…",
   "start.worktree.branchFailed": "Created the worktree, but not the branch {{name}}",
+  "start.worktree.prFailed": "Created the worktree, but could not check out #{{number}} in it",
   "start.worktree.kept": "The worktree is kept at {{directory}}.",
   "start.agent.worktree": "Start agent now (new tab)",
   "start.agent.createWorktree": "Just create the worktree",

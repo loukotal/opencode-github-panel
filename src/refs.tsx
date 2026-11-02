@@ -371,6 +371,12 @@ function RefMenu(props: { ctx: Context; actions: Actions; target: { ref: ItemRef
                 ),
             },
             {
+              label: t("action.checkoutPrWorktree"),
+              icon: "branch-out" as const,
+              onSelect: () =>
+                run(() => actions.checkoutPrWorktree(directory, { number: ref.number, repo: ref.repo, head: current.pr?.head, title: current.title })),
+            },
+            {
               label: t("action.mergePr"),
               icon: "fork" as const,
               disabled: current.draft,

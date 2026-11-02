@@ -218,6 +218,25 @@ export function ItemView(props: { item: ItemRef; session: MountedSession; action
                         >
                           {t("action.checkoutPr")}
                         </ui.Button>
+                        <ui.Button
+                          size="small"
+                          variant="neutral"
+                          icon="branch-out"
+                          busy={busy() === "worktree"}
+                          disabled={!local() || !!busy()}
+                          onClick={() =>
+                            void run("worktree", () =>
+                              props.actions.checkoutPrWorktree(overview.latest?.root ?? props.session.directory, {
+                                number: current().number,
+                                repo: current().repo,
+                                head: pr().head,
+                                title: current().title,
+                              }),
+                            )
+                          }
+                        >
+                          {t("action.checkoutPrWorktree")}
+                        </ui.Button>
                         <Show when={current().draft && current().state === "OPEN"}>
                           <ui.Button
                             size="small"

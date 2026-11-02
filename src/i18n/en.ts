@@ -75,6 +75,8 @@ export const en = {
   "action.copyHash": "Copy hash",
   "action.copyLink": "Copy link",
   "action.checkoutPr": "Checkout locally",
+  "action.checkoutPrWorktree": "Checkout in a worktree",
+  "toast.noWorktrees": "This server cannot make worktrees of this repository",
   "action.mergePr": "Merge…",
   "action.abort": "Abort",
   "action.continue": "Continue",

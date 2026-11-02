@@ -970,6 +970,14 @@ function ItemRow(props: {
               ),
           },
           {
+            label: t("action.checkoutPrWorktree"),
+            icon: "branch-out" as const,
+            onSelect: () =>
+              void s.run("checkout", () =>
+                s.actions.checkoutPrWorktree(s.cwd(), { number: props.item.number, repo: null, head: props.item.head, title: props.item.title }),
+              ),
+          },
+          {
             label: t("action.mergePr"),
             icon: "fork" as const,
             disabled: props.item.draft,

@@ -646,6 +646,47 @@ export function createActions(ctx: SetupContext<typeof definition>) {
     return { id, sent: prompt !== undefined && failure === undefined }
   }
 
+  /**
+   * Checks a pull request out in a new worktree, so this checkout stays as it is, and opens a session there. A branch
+   * already checked out in a worktree opens that one instead.
+   */
+  const checkoutPrWorktree = async (cwd: string, pr: { number: number; repo: string | null; head?: string | null; title?: string }) => {
+    const session = ctx.sessions.current()
+    if (!session) {
+      ctx.toast.show({ variant: "error", title: ctx.t("toast.noComposer") })
+      return
+    }
+    const title = pr.title ? `#${pr.number} ${pr.title}` : `#${pr.number}`
+    const branches = await git.branches({ cwd }).catch(() => [])
+    const elsewhere = branches.find((branch) => !branch.remote && branch.name === pr.head && branch.worktree)?.worktree
+    if (elsewhere) return openDirectory(elsewhere, title)
+    const project = await session.server.client.location.get({ location: { directory: session.directory } }).then(
+      (info) => info.project,
+      () => undefined,
+    )
+    if (!project) {
+      ctx.toast.show({ variant: "error", title: ctx.t("toast.noWorktrees") })
+      return
+    }
+    const created = await progress(ctx.t("start.worktree.creating"), () =>
+      session.server.client.worktree.create({ projectID: project.id, from: project.canonical, name: `pr-${pr.number}` }),
+    )
+    if (!created) return
+    const directory = created.directory
+    const done = await progress(ctx.t("action.checkoutPr"), () => git.checkoutPr({ cwd: directory, number: pr.number, repo: pr.repo }))
+    if (done === undefined) {
+      ctx.toast.show({
+        variant: "error",
+        title: ctx.t("start.worktree.prFailed", { number: pr.number }),
+        description: ctx.t("start.worktree.kept", { directory }),
+        duration: 20_000,
+        actions: [{ label: ctx.t("launch.open"), run: () => void openDirectory(directory, title) }],
+      })
+      return
+    }
+    await openDirectory(directory, title)
+  }
+
   /** Shows a session in `directory`: an open tab's that is there already, else a new idle one. */
   const openDirectory = async (directory: string, title: string) => {
     const server = ctx.sessions.current()?.server.id
@@ -838,6 +879,7 @@ export function createActions(ctx: SetupContext<typeof definition>) {
     startSession,
     launch,
     openDirectory,
+    checkoutPrWorktree,
     ask,
     agentMenu,
     setItemState,

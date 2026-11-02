@@ -54,7 +54,8 @@ fetch, workflow runs and open on GitHub). Branch details appear only on the two 
   descriptions and comments clamp, bot comments and resolved threads start folded, long conversations hide the middle,
   and Fold all / Unfold all is one click (turn it off with "Fold long content"). Pull requests add **Files** (changed
   files list, Collapse all, a Viewed checkbox per file, inline review comments) and **Checks** (failing first; passed
-  folded), with Checkout and Merge. **Add to chat** quotes the issue or PR into your next prompt.
+  folded), with Checkout, Checkout in a worktree (a new folder and a session there, so this checkout stays as it is) and
+  Merge. **Add to chat** quotes the issue or PR into your next prompt.
 - **CI runs**: jobs fold (failed ones open with their failing step), logs show the last 3,000 lines with ANSI codes
   stripped, and running jobs poll; re-run and cancel.
 - **Inbox** (the bell): notifications grouped by repository, marked read only when you open one or ask to.
